@@ -1,0 +1,15 @@
+#  BYM2 총 공간효과(잠재벡터 앞 n개)를 시군구 평균 공변량(중심화)에 직교하도록 extraconstr. 이항+관측 iid, offset logit(pE).
+suppressPackageStartupMessages({library(INLA);library(sf);library(jsonlite)})
+inla.setOption(num.threads="1:1");OUTD<-file.path("..","04_분석","SCRN");RES<-file.path(OUTD,"results_std3")
+S<-fromJSON(file.path(OUTD,"config_SCRN_std3.json"));DD<-read.csv(file.path(OUTD,"panel_SCRN_std3.csv"),fileEncoding="UTF-8-BOM",stringsAsFactors=FALSE);DD$fbd_region<-enc2utf8(DD$fbd_region)
+G<-st_read(paste0(Sys.getenv("ST_DATA_ROOT"), "/기타/R_Studio/FBD_DATA_ZIP/final.shp",quiet=TRUE);G$region<-enc2utf8(G$region);g<-inla.read.graph(Sys.getenv("ST_GRAPH"));n<-g$n
+DD$area<-match(DD$fbd_region,G$region);DD$time<-DD$year-min(DD$year)+1;DD$yiid<-DD$time;DD$obs<-seq_len(nrow(DD))
+MAINV<-unique(c(as.character(S$sets_after_vif$S1_narrative_full),S$forced))
+Xb<-apply(as.matrix(DD[,MAINV]),2,function(x)tapply(x,DD$area,mean))[as.character(1:n),];Xb<-scale(Xb,scale=FALSE)
+RSRC<-list(A=cbind(t(Xb),matrix(0,ncol(Xb),n)),e=rep(0,ncol(Xb)))
+pc<-list(prec=list(prior="pc.prec",param=c(0.5,0.01)),phi=list(prior="pc",param=c(0.5,2/3)));pcp<-list(prec=list(prior="pc.prec",param=c(0.5,0.01)))
+f<-as.formula(paste("cases ~ 1 +",paste(sprintf("`%s`",MAINV),collapse="+"),"+ f(area,model='bym2',graph=g,scale.model=TRUE,constr=TRUE,hyper=pc,extraconstr=RSRC) + f(time,model='rw1',scale.model=TRUE,hyper=pcp) + f(yiid,model='iid',hyper=pcp) + f(obs,model='iid',hyper=pcp) + offset(off)"))
+m<-inla(f,family="binomial",data=DD,Ntrials=DD$Ntr,control.fixed=list(mean=0,prec=4,mean.intercept=0,prec.intercept=0.001),control.compute=list(waic=TRUE),control.predictor=list(link=1),control.inla=list(control.vb=list(emergency=50)))
+pp<-m$summary.fitted.values$mean[seq_len(nrow(DD))];stopifnot(all(pp>0&pp<1))
+fx<-m$summary.fixed[MAINV,];out<-data.frame(cov=MAINV,IRR=round(exp(fx$mean),3),lo=round(exp(fx$`0.025quant`),3),hi=round(exp(fx$`0.975quant`),3),cred=(fx$`0.025quant`>0|fx$`0.975quant`<0),WAIC=round(m$waic$waic,1),analysis="RSR",note="RSR: BYM2 총효과 ⟂ 시군구 평균 공변량(제약), 이항+관측 iid")
+write.csv(out,file.path(RES,"S43_part_RSR.csv"),row.names=FALSE);print(out)

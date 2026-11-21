@@ -1,0 +1,230 @@
+{
+ "tag": "SCRN",
+ "outcome_column": "ext__scrn_cases",
+ "outcome_label_en": "First-stage National General Health Screening uptake: examinees among eligible persons (NHIS health screening statistics DT_35007_N001 2011-2017 and DT_35007_N001_1 2018-2024, annual)",
+ "disease_en": "General health screening uptake (use of a preventive service, not a disease)",
+ "disease_ko": "일반건강검진 1차 수검(수검인원 ÷ 대상인원)",
+ "offset": "ext__scrn_eligible",
+ "exclude_years": [],
+ "forced": [
+  "ext__urban_population_share",
+  "ext__physicians_per_1000",
+  "ext__sex_ratio",
+  "ext__fiscal_independence"
+ ],
+ "negative_controls": [
+  "ext__hit_and_run_rate",
+  "ext__traffic_culture_index",
+  "ext__fires_per_10000"
+ ],
+ "offset_E_column": "E",
+ "offset_E_file": "SCRN_Ebinom.csv",
+ "offset_E_label": "expected first-stage examinees E = eligible x pE, pE = sex-standardised expected uptake (district eligible persons by sex x national sex-specific uptake of the same year, KOSIS DT_35007_N001/N001_1); binomial models use Ntrials = eligible persons and offset logit(pE); eligible persons by age are not published for districts (age enters through forced 80+ share and the population-based sensitivity)",
+ "offset_E_sensitivity_column": "E_pop",
+ "offset_E_label_sensitivity": "population-based age-and-sex standardisation (resident population 2 sexes x 16 age bands x national age-sex uptake per resident; binomial offset logit(E_pop/eligible))",
+ "graph": "593-edge contact graph, ST_GRAPH=04_분석/SCRN/graph_593.graph",
+ "sensitivity_only_extra": [
+  "ext__medicaid1_share",
+  "ext__genhosp_per100k"
+ ],
+ "sets": {
+  "S1_narrative_full": [
+   "ext__walking_rate",
+   "ext__moderate_pa_rate",
+   "ext__public_sport_fac_per100k",
+   "ext__village_sport_fac_per100k",
+   "ext__smoking_rate",
+   "ext__high_risk_drinking",
+   "kchs__DT_H_OBE_OBE__SR",
+   "ext__im_specialists_per100k",
+   "ext__unmet_need_rate",
+   "ext__basic_livelihood_rate",
+   "ext__tertiary_educated_share",
+   "ext__living_alone_elderly"
+  ],
+  "S2_core": [
+   "ext__walking_rate",
+   "ext__moderate_pa_rate",
+   "ext__public_sport_fac_per100k",
+   "ext__smoking_rate",
+   "ext__unmet_need_rate",
+   "ext__basic_livelihood_rate"
+  ],
+  "S3_physical_activity": [
+   "ext__walking_rate",
+   "ext__moderate_pa_rate",
+   "ext__public_sport_fac_per100k",
+   "ext__village_sport_fac_per100k"
+  ],
+  "S4_health_behaviour": [
+   "ext__smoking_rate",
+   "ext__high_risk_drinking",
+   "kchs__DT_H_OBE_OBE__SR"
+  ],
+  "S5_care_access": [
+   "ext__im_specialists_per100k",
+   "ext__unmet_need_rate"
+  ],
+  "S6_socioeconomic": [
+   "ext__basic_livelihood_rate",
+   "ext__tertiary_educated_share",
+   "ext__living_alone_elderly"
+  ]
+ },
+ "transform": {
+  "ext__urban_population_share": "none",
+  "ext__physicians_per_1000": "none",
+  "ext__sex_ratio": "none",
+  "ext__fiscal_independence": "none",
+  "ext__pop80_share": "none",
+  "ext__hit_and_run_rate": "none",
+  "ext__traffic_culture_index": "none",
+  "ext__fires_per_10000": "none",
+  "ext__medicaid1_share": "none",
+  "ext__genhosp_per100k": "none",
+  "ext__walking_rate": "none",
+  "ext__moderate_pa_rate": "none",
+  "ext__public_sport_fac_per100k": "none",
+  "ext__village_sport_fac_per100k": "none",
+  "ext__smoking_rate": "none",
+  "ext__high_risk_drinking": "none",
+  "kchs__DT_H_OBE_OBE__SR": "none",
+  "ext__im_specialists_per100k": "none",
+  "ext__unmet_need_rate": "none",
+  "ext__basic_livelihood_rate": "none",
+  "ext__tertiary_educated_share": "none",
+  "ext__living_alone_elderly": "none"
+ },
+ "expected_direction": {
+  "ext__walking_rate": "+",
+  "ext__moderate_pa_rate": "+",
+  "ext__public_sport_fac_per100k": "+",
+  "ext__village_sport_fac_per100k": "+",
+  "ext__smoking_rate": "-",
+  "ext__high_risk_drinking": "-",
+  "kchs__DT_H_OBE_OBE__SR": "±",
+  "ext__im_specialists_per100k": "+",
+  "ext__unmet_need_rate": "-",
+  "ext__basic_livelihood_rate": "-",
+  "ext__tertiary_educated_share": "+",
+  "ext__living_alone_elderly": "-"
+ },
+ "rules": {
+  "likelihood": "forced-only 모형 WAIC 낮은 쪽(binomial/betabinomial/binomial_olre)",
+  "set_choice": "WAIC 최소, 4 이내면 변수 적은 세트",
+  "credible": "95% CrI 1 제외",
+  "vif_drop": 10,
+  "multiverse_specs": 200,
+  "main_model_note": "Principal model = S1_narrative_full (12 district characteristics + 5 forced adjustments). VIF>10 retained and reported.",
+  "years": [
+   2011,
+   2024
+  ],
+  "windows": {
+   "W1_2011-17": [
+    2011,
+    2017
+   ],
+   "W2_2018-24": [
+    2018,
+    2024
+   ]
+  },
+  "covid_post_from": 2020
+ },
+ "note": "Outcome: first-stage general health screening attendees among eligible persons (NHIS, KOSIS DT_35007_N001/N001_1), 229 districts, 2011-2024; binomial trials = eligible persons, offset = logit of sex-standardised expected uptake.",
+ "extra_columns": {
+  "ext__scrn_cases": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "scrn_cases"
+  ],
+  "ext__scrn_eligible": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "scrn_eligible"
+  ],
+  "ext__urban_population_share": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "urban_population_share"
+  ],
+  "ext__physicians_per_1000": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "physicians_per_1000"
+  ],
+  "ext__sex_ratio": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "sex_ratio"
+  ],
+  "ext__fiscal_independence": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "fiscal_independence"
+  ],
+  "ext__pop80_share": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "pop80_share"
+  ],
+  "ext__hit_and_run_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "hit_and_run_rate"
+  ],
+  "ext__traffic_culture_index": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "traffic_culture_index"
+  ],
+  "ext__fires_per_10000": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "fires_per_10000"
+  ],
+  "ext__medicaid1_share": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "medicaid1_share"
+  ],
+  "ext__genhosp_per100k": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "genhosp_per100k"
+  ],
+  "ext__walking_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "walking_rate"
+  ],
+  "ext__moderate_pa_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "moderate_pa_rate"
+  ],
+  "ext__public_sport_fac_per100k": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "public_sport_fac_per100k"
+  ],
+  "ext__village_sport_fac_per100k": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "village_sport_fac_per100k"
+  ],
+  "ext__smoking_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "smoking_rate"
+  ],
+  "ext__high_risk_drinking": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "high_risk_drinking"
+  ],
+  "ext__im_specialists_per100k": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "im_specialists_per100k"
+  ],
+  "ext__unmet_need_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "unmet_need_rate"
+  ],
+  "ext__basic_livelihood_rate": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "basic_livelihood_rate"
+  ],
+  "ext__tertiary_educated_share": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "tertiary_educated_share"
+  ],
+  "ext__living_alone_elderly": [
+   "EXT_canonical_pool_SCRN_261118.csv",
+   "living_alone_elderly"
+  ]
+ }
+}
