@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# 87 — 창별 결정요인 격자(F42b 방식: 변수 행 × 창 열, IRR·95% CrI, pooled 열 없음, 라벨 "English (한글)"). 원형 FBD 592_ehec_window_grid.py.
-#  입력: results<SUF>/S4_window_IRR.csv(81 S4) · S4_window_fit.csv(창별 n·사례) · S4_interaction.csv(있으면 † = 창×변수 상호작용 credible, 기준창 W1) · S3_main_IRR.csv(행 순서)
-#  산출: figs<SUF>/<TAG>_F42b_window_grid.png · results<SUF>/S4c_window_grid_table.csv(그림과 같은 수치, 긴 형식)
-#  색: credible(95% CrI가 1 제외)만 빨강(IRR>1)/파랑(IRR<1) 칸, 나머지 흰 칸 회색 글자. 가설 변수 먼저, 강제통제는 구분선 아래.
+
+
+
+
 import os, sys, unicodedata
 import numpy as np, pandas as pd
 import matplotlib as mpl; mpl.use("Agg"); import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ ixc = {(r.cov, r.window): bool(r.cred) for r in IX.itertuples()}
 hyp = [c for c in M["cov"] if M.set_index("cov").loc[c, "role"] == "hypothesis"]; frc = [c for c in M["cov"] if c not in hyp]
 order = hyp + frc; cols = list(F.window)
 lab = {r.cov: f"{NFC(r.label_en)} ({NFC(r.label_ko)})" for r in S.drop_duplicates("cov").itertuples()}
-# 범위 표기 괄호 중첩 방지: 영문 라벨 속 "(SR %)" 같은 괄호는 그대로 두고 한글만 바깥 괄호
+
 RED, BLUE, RL, BL = "#c0392b", "#1f4e79", "#f4d0cb", "#d3dff0"
 nr, nc = len(order), len(cols)
 fig, ax = plt.subplots(figsize=(4.2 + 2.0 * nc, 0.42 * nr + 1.3))
@@ -30,7 +30,7 @@ for i, v in enumerate(order):
         if not len(r): continue
         r = r.iloc[0]; cred = bool(r.cred); posi = r.IRR > 1
         ax.add_patch(Rectangle((j, nr - 1 - i), 1, 1, facecolor=(RL if posi else BL) if cred else "white", edgecolor=(RED if posi else BLUE) if cred else "#cccccc", linewidth=1.4 if cred else 0.5))
-        dp = 3 if max(abs(r.lo - 1), abs(r.hi - 1)) < 0.1 else 2   # 칸 안 세 숫자는 같은 자릿수(1 근처 효과는 3자리)
+        dp = 3 if max(abs(r.lo - 1), abs(r.hi - 1)) < 0.1 else 2
         ax.text(j + 0.5, nr - 1 - i + 0.5, f"{r.IRR:.{dp}f} ({r.lo:.{dp}f}-{r.hi:.{dp}f})",
                 ha="center", va="center", fontsize=8.2, color=((RED if posi else BLUE) if cred else "#555555"), fontweight="bold" if cred else "normal")
         dag = ixc.get((v, c), False)

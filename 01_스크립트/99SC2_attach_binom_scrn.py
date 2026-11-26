@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#  Ntr = 대상인원(시행), cases = 1차 수검인원, off = logit(pE)(성 표준화), off_sens = 인구 기반 성×16연령 표준화 logit(81 S10), s8은 off ← off_age(성 무시).
+
 import os, sys, unicodedata, numpy as np, pandas as pd
 NFC = lambda s: unicodedata.normalize("NFC", str(s))
 TAG, VER = sys.argv[1], sys.argv[2]; R = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -12,4 +12,4 @@ D = D.drop(columns="cases_chk")
 if VER == "s8": D["off"] = D.off_age
 D["off_sens"] = D.off_pop
 D.to_csv(fp, index=False, encoding="utf-8-sig")
-r = D.cases / D.Ntr; print(f"[99SC2] {fp}: {len(D)}행 {D.fbd_region.nunique()}곳, 수검률 {r.min():.3f}~{r.max():.3f}, off {D.off.min():.3f}~{D.off.max():.3f}, Σcases/ΣNtr {D.cases.sum()/D.Ntr.sum():.4f}")
+r = D.cases / D.Ntr; print(f"[99SC2] {fp}: {len(D)} rows, {D.fbd_region.nunique()} districts, uptake {r.min():.3f}~{r.max():.3f}, off {D.off.min():.3f}~{D.off.max():.3f}, Σcases/ΣNtr {D.cases.sum()/D.Ntr.sum():.4f}")

@@ -1,7 +1,3 @@
-#  전제: 81 이 끝나 HM_best_<TAG><SUF>.txt·S1_likelihood.csv·S4_window_IRR.csv 가 있음(주 세트·우도를 그대로 씀). 81·80 은 읽기만 함.
-#  모형: 81 S4 와 동일 — cases ~ offset(log E) + forced + 주 세트 + BYM2(PC, queen+섬 최근접) + RW1(연도) + iid(연도), 창마다 재적합, INLA 1스레드.
-#  산출: results<SUF>/S4b_window_spatialRR.csv(창×시군구 RR·CrI·P(RR>1)·class·창 관측 SIR) · S4b_window_fit.csv(창별 핫/콜드 수·phi·WAIC)
-#        · S4b_window_moran.csv(창별 연도별 + 창 합산 log SIR Moran I, 999 순열) · figs<SUF>/<TAG>_F4b_window_spatialRR.png · <TAG>_F4c_window_exceedance.png
 suppressPackageStartupMessages({library(INLA);library(sf);library(spdep);library(jsonlite);library(ggplot2);library(dplyr)})
 args<-commandArgs(trailingOnly=TRUE);TAG<-args[1];VER<-if(length(args)>=2)args[2] else "v1";stopifnot(!is.na(TAG))
 SUF<-if(VER %in% c("","v1"))"" else paste0("_",VER)
@@ -17,12 +13,11 @@ HB<-readLines(file.path(OUTD,sprintf("HM_best_%s%s.txt",TAG,SUF)));kv<-function(
 MAINFAM<-kv("main_family");BEST<-kv("best_set");FORCED<-S$forced;SETS<-lapply(S$sets_after_vif,as.character)
 MAINV<-unique(c(SETS[[BEST]],FORCED));stopifnot(all(MAINV%in%names(DD)))
 WIN<-INFO$windows;LOG("family=%s set=%s nvar=%d windows=%s",MAINFAM,BEST,length(MAINV),paste(names(WIN),collapse=","))
-## 그래프: 81 과 같은 규칙(queen + 고립 폴리곤 최근접 1개 대칭 연결), 81 이 저장한 nb_<TAG>.graph 와 대조
 G<-st_read(SHP,quiet=TRUE);G$region<-enc2utf8(G$region);n<-nrow(G)
 nb<-poly2nb(G,queen=TRUE);isl<-which(card(nb)==0)
 if(length(isl)){cen<-st_coordinates(st_centroid(st_geometry(G)));kn<-knearneigh(cen,k=1)$nn
   for(i in isl){j<-kn[i,1];nb[[i]]<-sort(unique(c(nb[[i]][nb[[i]]>0],j)));nb[[j]]<-sort(unique(c(nb[[j]][nb[[j]]>0],i)))}}
-if(nzchar(Sys.getenv("ST_GRAPH"))){sg<-inla.read.graph(Sys.getenv("ST_GRAPH"));stopifnot(sg$n==nrow(G));for(i in seq_len(sg$n))nb[[i]]<-as.integer(sort(sg$nbs[[i]]));attr(nb,"sym")<-TRUE}   # 2026-11-04: ST_GRAPH 지정 시 외부 그래프(예 593 edge contact) 사용, 미지정이면 기존 queen+섬 규칙
+if(nzchar(Sys.getenv("ST_GRAPH"))){sg<-inla.read.graph(Sys.getenv("ST_GRAPH"));stopifnot(sg$n==nrow(G));for(i in seq_len(sg$n))nb[[i]]<-as.integer(sort(sg$nbs[[i]]));attr(nb,"sym")<-TRUE}
 GF<-file.path(RES,sprintf("nb_%s.graph",TAG));g<-inla.read.graph(GF);stopifnot(g$n==n,all(g$nnbs==card(nb)))
 OBSR<-G$region%in%unique(DD$fbd_region)
 moran_obs<-function(x,regions){k<-!is.na(x)&is.finite(x);if(sum(k)<10)return(list(statistic=NA,p.value=NA));kk<-G$region%in%regions[k];nbk<-subset(nb,kk);lwk<-nb2listw(nbk,style="W",zero.policy=TRUE);moran.mc(x[k][match(G$region[kk],regions[k])],lwk,999,zero.policy=TRUE)}
@@ -54,13 +49,11 @@ for(wn in names(WIN)){yy<-WIN[[wn]];d<-DD[DD$year>=yy[1]&DD$year<=yy[2],];d$time
   MOR<-rbind(MOR,data.frame(window=wn,year=sprintf("%d-%d",yy[1],yy[2]),quantity="bym2_logRR_window",moran_I=round(unname(mm$statistic),4),p_perm=round(mm$p.value,4)))
   LOG("%s: hot %d cold %d RR %.3f-%.3f phi %.3f · %.1f min",wn,sum(rr$class=="hotspot"),sum(rr$class=="coldspot"),min(rr$RR),max(rr$RR),FIT$phi[nrow(FIT)],as.numeric(difftime(Sys.time(),t0,units="mins")))
   rm(m)}
-# 창 간 일치: 핫스팟 유지·신규·소멸
 w<-names(WIN);H<-sapply(w,function(k)RRL$class[RRL$window==k]=="hotspot");C<-sapply(w,function(k)RRL$class[RRL$window==k]=="coldspot")
 FIT$hot_kept_from_prev<-c(NA,sapply(2:length(w),function(k)sum(H[,k]&H[,k-1])));FIT$hot_new_vs_prev<-c(NA,sapply(2:length(w),function(k)sum(H[,k]&!H[,k-1])));FIT$hot_lost_vs_prev<-c(NA,sapply(2:length(w),function(k)sum(!H[,k]&H[,k-1])))
 FIT$hot_all_windows<-sum(rowSums(H)==length(w));FIT$cold_all_windows<-sum(rowSums(C)==length(w))
 FIT$spearman_logRR_vs_prev<-c(NA,sapply(2:length(w),function(k)round(cor(log(RRL$RR[RRL$window==w[k]]),log(RRL$RR[RRL$window==w[k-1]]),method="spearman"),3)))
 write.csv(RRL,F1,row.names=FALSE,fileEncoding="UTF-8");write.csv(FIT,F2,row.names=FALSE,fileEncoding="UTF-8");write.csv(MOR,F3,row.names=FALSE,fileEncoding="UTF-8")
-## 지도(3패널 a·b·c): 공통 로그대칭 8계급 + 핫(P>0.95) 검은 외곽선 / 콜드(P<0.05) 남색 외곽선
 RRB<-c(-Inf,0.67,0.8,0.9,1,1.1,1.25,1.5,Inf);RRLAB<-c("<0.67","0.67-0.8","0.8-0.9","0.9-1","1-1.1","1.1-1.25","1.25-1.5",">=1.5")
 PAL8<-c("#2166AC","#4393C3","#92C5DE","#D1E5F0","#FDDBC7","#F4A582","#D6604D","#B2182B")
 PEPB<-c(-Inf,0.05,0.5,0.8,0.95,Inf);PEPL<-c("<0.05","0.05-0.5","0.5-0.8","0.8-0.95",">0.95");PAL5<-c("#2166AC","#D1E5F0","#FEE0B6","#FDAE61","#B2182B")
@@ -72,7 +65,7 @@ thm<-theme_void(base_size=11)+theme(strip.text=element_text(face="bold",size=11,
 ol<-list(geom_sf(data=SP[SP$class=="hotspot",],aes(color="Hotspot, P(RR > 1) > 0.95"),fill=NA,linewidth=0.35,inherit.aes=FALSE),
          geom_sf(data=SP[SP$class=="coldspot",],aes(color="Coldspot, P(RR > 1) < 0.05"),fill=NA,linewidth=0.35,inherit.aes=FALSE),
          scale_color_manual(name=NULL,values=c("Hotspot, P(RR > 1) > 0.95"="black","Coldspot, P(RR > 1) < 0.05"="#3182BD")))
-lvl<-function(lv,col){d<-SP[seq_along(lv),];d[[col]]<-factor(lv,levels=lv);geom_sf(data=d,aes(fill=.data[[col]]),alpha=0,color=NA,show.legend=TRUE,inherit.aes=FALSE)}   # 빈 계급도 범례에 표시
+lvl<-function(lv,col){d<-SP[seq_along(lv),];d[[col]]<-factor(lv,levels=lv);geom_sf(data=d,aes(fill=.data[[col]]),alpha=0,color=NA,show.legend=TRUE,inherit.aes=FALSE)}
 g1<-ggplot(SP)+geom_sf(aes(fill=cls),color="grey70",linewidth=0.06)+lvl(RRLAB,"cls")+geom_sf(data=SIDO,fill=NA,color="grey35",linewidth=0.2,inherit.aes=FALSE)+ol+facet_wrap(~panel,nrow=1)+
   scale_fill_manual(values=setNames(PAL8,RRLAB),breaks=rev(RRLAB),limits=RRLAB,drop=FALSE,name="Spatial RR\n(BYM2, window)")+guides(fill=guide_legend(override.aes=list(alpha=1,color="grey40")),color=guide_legend(override.aes=list(fill=NA)))+thm
 ggsave(file.path(FIG,sprintf("%s_F4b_window_spatialRR.png",TAG)),g1,width=13,height=4.9,dpi=300,bg="white")

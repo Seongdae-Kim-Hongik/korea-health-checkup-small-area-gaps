@@ -1,4 +1,3 @@
-#  BYM2 총 공간효과(잠재벡터 앞 n개)를 시군구 평균 공변량(중심화)에 직교하도록 extraconstr. 이항+관측 iid, offset logit(pE).
 suppressPackageStartupMessages({library(INLA);library(sf);library(jsonlite)})
 inla.setOption(num.threads="1:1");OUTD<-file.path("..","04_분석","SCRN");RES<-file.path(OUTD,"results_std3")
 S<-fromJSON(file.path(OUTD,"config_SCRN_std3.json"));DD<-read.csv(file.path(OUTD,"panel_SCRN_std3.csv"),fileEncoding="UTF-8-BOM",stringsAsFactors=FALSE);DD$fbd_region<-enc2utf8(DD$fbd_region)

@@ -1,8 +1,4 @@
-"""시군구 마스터키: FBD 패널(식중독최종.csv, 229 시군구 고정) 기준으로 KCHS 코드·각 원천의 시도/시군구 이름을 잇는다.
-- sido_std: 시도 표준명(FBD 표기: 서울시·부산시·…·강원도·전라북도·제주도·세종시)
-- key = sido_std + sigungu(공백 제거)
-산출: 02_패널/시군구_마스터키.csv, 02_패널/시군구_마스터키_점검.md
-"""
+"""Part of the analysis pipeline; inputs and outputs are listed in README.md (Pipeline)."""
 import os, re, pandas as pd
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "02_패널")
@@ -24,7 +20,7 @@ def sgg_clean(s, sido=None):
     return s
 def make_key(sido, sgg):
     sg = sgg_clean(sgg, sido); sd = "세종시" if sg == "세종시" else sido_std(sido)
-    if "@" in sg: sg, sd = sg.split("@")   # 경계 변경(군위군 → 대구시, 2024 경계 기준)
+    if "@" in sg: sg, sd = sg.split("@")
     return f"{sd}|{sg}"
 
 if __name__ == "__main__":

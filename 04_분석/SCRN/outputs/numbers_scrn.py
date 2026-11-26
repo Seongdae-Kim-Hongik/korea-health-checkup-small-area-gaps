@@ -1,9 +1,10 @@
-#  산출 = numbers_scrn.json, gi_scrn.csv. 원고 숫자의 유일한 출처. 효과 = 오즈비(OR, 결과 csv의 IRR 열 이름은 이항 사본에서 그대로 유지).
+# numbers_scrn.py: reads the model result tables (results_std3, _s577, _s2, _s8), the analytic panel and the expected-count file, and writes numbers_scrn.json and gi_scrn.csv.
+# Every number reported in the paper is taken from numbers_scrn.json. Run from any folder; set ST_DATA_ROOT to the folder holding the boundary file.
 import os, json, unicodedata, numpy as np, pandas as pd
 from scipy.stats import spearmanr, norm
-HERE = os.path.dirname(os.path.abspath(__file__)); B = os.path.abspath(os.path.join(HERE, "..", "..")); AN = os.path.dirname(B); ROOT = os.path.dirname(AN); PAN = os.path.join(ROOT, "02_패널")
+HERE = os.path.dirname(os.path.abspath(__file__)); B = os.path.abspath(os.path.join(HERE, "..")); AN = os.path.dirname(B); ROOT = os.path.dirname(AN); PAN = os.path.join(ROOT, "02_패널")
 RS = lambda v="std3": os.path.join(B, f"results_{v}"); NFC = lambda s: unicodedata.normalize("NFC", str(s))
-SHP = os.environ.get("ST_SHP", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "data", "boundary", "final.shp"))
+SHP = os.path.join(os.environ["ST_DATA_ROOT"], "기타", "R_Studio", "FBD_DATA_ZIP", "final.shp")
 VARS = {"walking": "ext__walking_rate", "mpa": "moderate_pa_rate", "public_fac": "ext__public_sport_fac_per100k", "village_fac": "ext__village_sport_fac_per100k",
         "smoking": "ext__smoking_rate", "drinking": "ext__high_risk_drinking", "obesity": "obesity_rate",
         "im_spec": "im_specialists_per_100k", "unmet": "ext__unmet_need_rate",
@@ -23,7 +24,7 @@ N["uptake"] = {int(k): round(100 * v, 1) for k, v in up.items()}; N["elig_m"] = 
 for s, lab in (("남자", "men"), ("여자", "women")):
     u = g[f"scr_{s}"].sum() / g[f"elig_{s}"].sum(); N[f"uptake_{lab}"] = {int(k): round(100 * v, 1) for k, v in u.items()}
 N["elig_growth_2017_2019_pct"] = round(100 * (N["elig_m"][2019] / N["elig_m"][2017] - 1), 1)
-L = P.groupby("fbd_region").apply(lambda d: d.cases.sum() / d.E.sum(), include_groups=False)   # 표준화 수검비(SUR, 관측/기대)
+L = P.groupby("fbd_region").apply(lambda d: d.cases.sum() / d.E.sum(), include_groups=False)
 U = P.groupby("fbd_region").apply(lambda d: d.cases.sum() / d.Ntr.sum(), include_groups=False)
 N["sur_min"], N["sur_max"] = round(L.min(), 2), round(L.max(), 2); N["sur_p10"], N["sur_p90"] = round(L.quantile(.1), 2), round(L.quantile(.9), 2); N["p90p10"] = round(L.quantile(.9) / L.quantile(.1), 2)
 N["up_p10"], N["up_p90"] = round(100 * U.quantile(.1), 1), round(100 * U.quantile(.9), 1); N["up_min"], N["up_max"] = round(100 * U.min(), 1), round(100 * U.max(), 1)
@@ -31,7 +32,7 @@ N["sur_top"] = [[r, round(v, 3)] for r, v in L.sort_values(ascending=False).head
 YS = P.pivot_table(index="fbd_region", columns="year", values="SIR"); N["p90p10_year"] = {int(y): round(YS[y].quantile(.9) / YS[y].quantile(.1), 3) for y in YS.columns}
 N["rho_2011_2024"] = round(spearmanr(YS[2011], YS[2024]).correlation, 2)
 N["rho_sur_up"] = round(spearmanr(L, U.reindex(L.index)).correlation, 2)
-# 기술(Table 1)
+
 WIN = {"2011-2017": (2011, 2017), "2018-2024": (2018, 2024), "2011-2024": (2011, 2024)}
 T1 = {}
 for w, (a, b) in WIN.items():
@@ -42,7 +43,7 @@ N["T1"] = T1
 mo = pd.read_csv(os.path.join(RS(), "S6_moran_year.csv")); N["moran_min"], N["moran_max"] = round(mo.moran_I.min(), 2), round(mo.moran_I.max(), 2)
 N["moran_2011"], N["moran_2024"] = round(float(mo[mo.year == 2011].moran_I.iloc[0]), 2), round(float(mo[mo.year == 2024].moran_I.iloc[0]), 2)
 N["kendall_w"] = round(float(pd.read_csv(os.path.join(RS(), "S12_persistence.csv")).iloc[0].kendall_W), 2)
-# Gi*(593 그래프, 자기 포함) — 14년 log SUR
+
 import geopandas as gpd
 G = open(os.path.join(B, "graph_593.graph")).read().split("\n"); nreg = int(G[0]); nb = {}
 for line in G[1:]:
@@ -68,7 +69,7 @@ for c in ("hotspot", "coldspot"):
 N["seoul_cold_bym"] = int(((GI.sido == "Seoul") & (GI["class"] == "coldspot")).sum()); N["seoul_n"] = int((GI.sido == "Seoul").sum())
 N["rr_min"], N["rr_max"] = round(GI.RR.min(), 2), round(GI.RR.max(), 2)
 N["rr_bottom"] = [[r, v] for r, v in GI.sort_values("RR").head(6)[["fbd_region", "RR"]].values.tolist()]; N["rr_top"] = [[r, v] for r, v in GI.sort_values("RR", ascending=False).head(6)[["fbd_region", "RR"]].values.tolist()]
-# 모형
+
 LK = pd.read_csv(os.path.join(RS(), "S1_likelihood.csv")); N["lik"] = {r.family: float(r.WAIC) for r in LK.itertuples()}
 M = tab("S3_main_IRR.csv"); N["main"] = {k: get(M, VARS[k]) for k in VARS}
 F = pd.read_csv(os.path.join(RS(), "S3_main_fit.csv")).iloc[0]; N["waic_main"] = float(F.WAIC); N["phi"] = float(F.phi); N["n_hot_bym"] = int(F.n_hotspot); N["n_cold_bym"] = int(F.n_coldspot)

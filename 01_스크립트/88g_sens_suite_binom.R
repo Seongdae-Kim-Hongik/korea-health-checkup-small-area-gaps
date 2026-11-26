@@ -1,6 +1,3 @@
-#  입력 = 88g_sens_prep.py 산출 S41_panel_*. 산출 = results_<VER>/S41_part_<analysis>.csv(공변량별 IRR + 적합 요약), S41_hot_<analysis>.csv(핫스팟)
-#  GROUP 1 = 우도·시간·평활·Spatial+·지연·극단·이동평균·비교결과 / 2 = 시도 빼기 / 3 = 연도 빼기·짝홀·2024 조건부 검증 / 4 = 대체 잡음 20회
-#        5 = 같은 기간 비지연 비교 / 6 = 이원 분해(강건 집합)·변수 제외(DROPS)
 suppressPackageStartupMessages({library(INLA);library(sf);library(spdep);library(jsonlite)})
 TAG<-Sys.getenv("TAG");stopifnot(nzchar(TAG));VER<-Sys.getenv("ST_VER",unset="std");SUF<-if(nzchar(VER))paste0("_",VER) else ""
 ROOT<-normalizePath(file.path(dirname(sub("--file=","",grep("--file=",commandArgs(),value=TRUE))),".."))
@@ -31,7 +28,7 @@ irr<-function(m,v){r<-m$summary.fixed[v,,drop=FALSE];pg<-1-inla.pmarginal(0,m$ma
 M6<-read.csv(file.path(RES,"S6_spatial_RR.csv"),stringsAsFactors=FALSE);hot0<-M6$fbd_region[M6$class=="hotspot"]
 rdp<-function(f){x<-read.csv(file.path(RES,f),fileEncoding="UTF-8",stringsAsFactors=FALSE);x$fbd_region<-enc2utf8(x$fbd_region);x}
 mrg<-function(d,X,cols){d<-d[,setdiff(names(d),cols)];d<-merge(d,X[,c("year","fbd_region",cols)],by=c("year","fbd_region"),all.x=TRUE,sort=FALSE);d[order(d$id),]}
-OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f   # 이항+관측 수준 iid(logit-정규 과산포)
+OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f
 fitX<-function(vars,data,fam=MAINFAM,ti=TI,extra=character(0),sp=SPf(),cfg=FALSE){
   data$obs<-seq_len(nrow(data));if(fam=="binomial_olre")extra<-c(extra,OLRE)
   fam<-FAMI(fam);rhs<-c("1",bt(vars),extra,sp,ti,IT,"offset(off)");rhs<-rhs[nzchar(rhs)];form<-as.formula(paste("cases ~",paste(rhs,collapse="+")))
@@ -43,7 +40,7 @@ fitX<-function(vars,data,fam=MAINFAM,ti=TI,extra=character(0),sp=SPf(),cfg=FALSE
 summ<-function(an,item,m,data,note="",vars=MAINV){
   if(is.null(m)){LOG("%s FAILED",an);return(invisible())}
   r<-do.call(rbind,lapply(intersect(vars,rownames(m$summary.fixed)),function(v)irr(m,v)))
-  kept<-if(NR)sum(sapply(ROBV,function(v){x<-r[r$cov==v,];nrow(x)==1&&x$cred&&sign(log(x$IRR))==msign[v]})) else 0L   # 2026-11-07 IHD: 강건 변수 0개면 sapply가 list() → sum 오류
+  kept<-if(NR)sum(sapply(ROBV,function(v){x<-r[r$cov==v,];nrow(x)==1&&x$cred&&sign(log(x$IRR))==msign[v]})) else 0L
   hj<-NA;nh<-NA
   if(!is.null(m$summary.random$area)){ua<-sort(unique(data$area));p1<-sapply(seq_along(ua),function(k)1-inla.pmarginal(0,m$marginals.random$area[[ua[k]]]))
     hot<-G$region[ua][p1>0.95];nh<-length(hot);h0<-intersect(hot0,G$region[ua]);hj<-round(length(intersect(hot,h0))/length(union(hot,h0)),3)

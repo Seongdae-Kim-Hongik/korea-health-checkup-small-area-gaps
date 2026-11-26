@@ -1,5 +1,3 @@
-# 88h — 공통 사후예측 점검·분산 분해(88e 정신질환판 일반화, 2026-10-21 유방암부터). E 변형 민감도는 질환별 E 파일이 있을 때만 별도.
-#  사용(01_스크립트/): TAG=BRCA ST_VER=std Rscript 88h_ppc_varpart.R    산출: results_<VER>/S42_ppc.csv, S42_pit_hist.csv, S42_variance_partition.csv
 suppressPackageStartupMessages({library(INLA);library(sf);library(spdep);library(jsonlite)})
 TAG<-Sys.getenv("TAG");stopifnot(nzchar(TAG));VER<-Sys.getenv("ST_VER",unset="std");SUF<-if(nzchar(VER))paste0("_",VER) else ""
 ROOT<-normalizePath(file.path(dirname(sub("--file=","",grep("--file=",commandArgs(),value=TRUE))),".."))
@@ -25,7 +23,7 @@ CF<-list(mean=0,prec=4,mean.intercept=0,prec.intercept=0.001)
 SPf<-function(gr="g",hyper="pc",extra="")sprintf("f(area,model='bym2',graph=%s,scale.model=TRUE,constr=TRUE,hyper=%s%s)",gr,hyper,extra)
 TI<-"f(time,model='rw1',scale.model=TRUE,hyper=pcp)";IT<-"f(yiid,model='iid',hyper=pcp)"
 bt<-function(v)sprintf("`%s`",v)
-DD$obs<-seq_len(nrow(DD));OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f   # 이항+관측 수준 iid(logit-정규 과산포)
+DD$obs<-seq_len(nrow(DD));OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f
 if(MAINFAM=="binomial_olre"){MAINFAM<-"binomial";IT<-paste0(IT,"+",OLRE)}
 fit<-function(vars,data=DD,sp=SPf(),extra=character(0),robust=FALSE,env=parent.frame()){
   rhs<-c("1",bt(vars),extra,sp,TI,IT,"offset(off)");rhs<-rhs[nzchar(rhs)];form<-as.formula(paste("cases ~",paste(rhs,collapse="+")),env=env)
@@ -35,7 +33,6 @@ safe<-function(...){tryCatch(fit(...),error=function(e){message("  fit failed: "
 irr<-function(m,v){r<-m$summary.fixed[v,,drop=FALSE];pg<-1-inla.pmarginal(0,m$marginals.fixed[[v]])
   data.frame(cov=v,IRR=round(exp(r$mean),3),lo=round(exp(r$`0.025quant`),3),hi=round(exp(r$`0.975quant`),3),P_gt1=round(pg,3),cred=(r$`0.025quant`>0|r$`0.975quant`<0),stringsAsFactors=FALSE)}
 set.seed(20261020)
-## (Q3) 주모형 재적합: CPO/PIT + 사후표본
 rhs<-c("1",bt(MAINV),SPf(),TI,IT,"offset(off)");form<-as.formula(paste("cases ~",paste(rhs,collapse="+")))
 m<-inla(form,family=MAINFAM,data=DD,Ntrials=DD$Ntr,control.fixed=CF,control.compute=list(cpo=TRUE,waic=TRUE,config=TRUE),
         control.inla=list(control.vb=list(emergency=50)),control.predictor=list(compute=TRUE),verbose=FALSE)
@@ -54,7 +51,6 @@ ksp<-suppressWarnings(ks.test(pit,"punif")$p.value)
 ppc<-data.frame(n_obs=n,n_samples=NS,coverage95=round(cov95,4),coverage50=round(cov50,4),ppp_variance_logSIR=round(ppp_var,3),
   pit_ks_p=signif(ksp,3),pit_mean=round(mean(pit,na.rm=TRUE),3),pit_sd=round(sd(pit,na.rm=TRUE),3),LCPO=round(-mean(log(m$cpo$cpo),na.rm=TRUE),4))
 if(NS>=200){write.csv(ppc,file.path(RES,"S42_ppc.csv"),row.names=FALSE)};print(ppc)
-## 분산 분해(선형예측자, 사후평균 기준)
 X<-model.matrix(as.formula(paste("~",paste(bt(MAINV),collapse="+"))),DD);b<-m$summary.fixed$mean;names(b)<-rownames(m$summary.fixed)
 colnames(X)<-gsub("`","",colnames(X));fx<-as.vector(X[,-1,drop=FALSE]%*%b[colnames(X)[-1]])
 ra<-m$summary.random$area$mean;comb<-ra[1:g$n][DD$area];ustar<-ra[(g$n+1):(2*g$n)][DD$area]
@@ -63,7 +59,7 @@ str<-sqrt(phi/tau)*ustar;unstr<-comb-str
 tt<-m$summary.random$time$mean[DD$time]+m$summary.random$yiid$mean[DD$yiid]
 fxh<-as.vector(X[,bt2<-colnames(X)[-1][colnames(X)[-1]%in%HYPV],drop=FALSE]%*%b[bt2]);fxf<-fx-fxh
 comp<-list(fixed_covariates=fx,fixed_hypothesis=fxh,fixed_forced_controls=fxf,spatial_structured=str,spatial_unstructured=unstr,year_effects=tt)
-v<-sapply(comp,var);vsum<-sum(v[c("fixed_covariates","spatial_structured","spatial_unstructured","year_effects")]);tot<-var(m$summary.linear.predictor$mean[seq_len(nrow(DD))]-DD$off)   # 이항 사본: offset 제외
+v<-sapply(comp,var);vsum<-sum(v[c("fixed_covariates","spatial_structured","spatial_unstructured","year_effects")]);tot<-var(m$summary.linear.predictor$mean[seq_len(nrow(DD))]-DD$off)
 vp<-data.frame(component=names(v),variance=signif(v,4),share_of_sum=round(v/vsum,3),share_of_linear_predictor_var=round(v/tot,3))
 vp<-rbind(vp,data.frame(component="linear_predictor_total",variance=signif(tot,4),share_of_sum=NA,share_of_linear_predictor_var=1))
 write.csv(vp,file.path(RES,"S42_variance_partition.csv"),row.names=FALSE);print(vp)

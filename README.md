@@ -4,7 +4,7 @@ Analysis code for the manuscript
 
 > Kim S. *Persistent small-area gaps in uptake of Korea's organised health check-up among eligible adults.*
 
-Archived version: Zenodo, https://doi.org/10.5281/zenodo.24412681 (v1.0.0).
+Archived version: Zenodo, https://doi.org/10.5281/zenodo.24562860 (v1.0.1).
 
 This code is released under the MIT licence.
 
@@ -16,9 +16,9 @@ This repository contains code only. The processed district-year data (analytic p
 |---|---|
 | `01_스크립트/` | Analysis scripts (below) |
 | `04_분석/SCRN/` | Covariate pool and model settings (`make_pool_sets_scrn.py`, `sets_SCRN_*.json`, `config_SCRN_std3.json`, SHA-256 hashes of the settings fixed before fitting), the full model chain (`run_std3_chain.sh`) and the district adjacency graph (`graph_593.graph`). Sensitivity versions: queen contiguity graph `s577`, without the share aged 80 or older `s2`, expected uptake ignoring sex `s8` |
-| `04_분석/SCRN/MS/build/` | Scripts that read the result tables and write every number, table and figure in the manuscript and supplementary material (`numbers_scrn.py`, `figs_scrn.py`, `content_scrn.py`, `build_manuscript_base_scrn.py`, `build_manuscript_scrn.py`, `esm_scrn.py`, `build_refs_scrn.py`; reference metadata verified against the author's reference library in `refs_zotero_scrn.json`) |
+| `04_분석/SCRN/outputs/` | Scripts that read the result tables and write the numbers (`numbers_scrn.py` → `numbers_scrn.json`, `gi_scrn.csv`), the cell values of Tables 1 and 2 (`tables_scrn.py`) and Figures 1 and 2 (`figs_scrn.py`) |
 
-Folder and some column names are in Korean because the source tables are Korean; each script has a header comment describing its inputs and outputs.
+Folder names and some identifiers are in Korean because the source tables are Korean (see Korean identifiers below).
 
 ## Data sources
 
@@ -39,10 +39,18 @@ Set `ST_DATA_ROOT` and `ST_GPT_DATASET` to the local copies of the public source
 | 3 | `80_build_disease_panel_v.py SCRN` (`ST_VER=std3`) and `99SC2_attach_binom_scrn.py SCRN std3` | Analytic panel with binomial trials and offsets |
 | 4 | `04_분석/SCRN/run_std3_chain.sh` | Likelihood comparison, principal model, covariate-subset models, windows, Knorr-Held interactions, Spatial+, sensitivity suite, posterior predictive checks |
 | 5 | `81R_refit_check_scrn.R`, `88S_scrn_posthoc_binom.R`, `88R_rsr_scrn.R` | Refit reproducibility check, prespecified period and workplace analyses and post hoc additions, restricted spatial regression |
-| 6 | `04_분석/SCRN/MS/build/*.py` | Numbers, figures, manuscript, supplementary material |
+| 6 | `04_분석/SCRN/outputs/numbers_scrn.py`, then `tables_scrn.py` and `figs_scrn.py` (set `ST_DATA_ROOT` for the boundary file) | `numbers_scrn.json`, table cell values, Figures 1 and 2 |
 
-R 4.6.0 with R-INLA 25.10.19 (1 thread), Python 3.9 with pandas, geopandas and python-docx.
+R 4.6.0 with R-INLA 25.10.19 (1 thread), Python 3.9 with pandas, geopandas, scipy, matplotlib and Pillow.
 
 ## Expected counts and offsets
 
 The binomial offset is the logit of the sex-standardised expected uptake (eligible persons by sex x national uptake by sex and year); no constant is added to expected counts, offsets or denominators, and no district-year has zero eligible persons or attendees. In the population-based sensitivity offset the expected uptake is bounded to 0.02-0.98 so that its logit is defined; the bound applies in 2 of 3,206 district-years (Hanam 2016, ratio 1.02; Sejong 2015, 0.98). The descriptive Moran's I of yearly log ratios uses log((attendees + 0.5)/E); no district-year has zero attendees (minimum 1,978), and recomputing without the 0.5 changed yearly Moran's I by at most 0.0001.
+
+## Korean identifiers
+
+Korean text that remains in the code is limited to identifiers that must match the source data or the settings fixed before fitting: folder and file names (`01_스크립트`, `02_패널`, `04_분석`, source table files), column and row labels of the KOSIS and survey tables, province and district names used for code-based linkage, regular expressions over those labels, labels written into intermediate quality-check reports and result tables, and the hypothesis notes inside `make_pool_sets_*.py` and `sets_SCRN_*.json`, whose SHA-256 hashes were recorded before any model was fitted and are therefore kept byte-identical.
+
+## Changes in v1.0.1
+
+Code comments and console messages are in English, and the scripts that assembled the manuscript text were removed; the outputs folder now holds only the scripts that compute numbers, table values and figures. The analysis code, settings and results are unchanged from v1.0.0.

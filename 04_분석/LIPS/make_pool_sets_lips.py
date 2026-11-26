@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-#      + 분석용 고정 복사본 SQLite region_year(mode=ro): 일반건강검진 수검률(chk__수검률) + LIPS 분자·분모(02_패널/LIPS_Estd3s.csv, 99S, 세종 시도 머리행 포함).
-#  보조 기간(2011-17): sets_LIPS_aux.json(ST_VER=aux), E = 02_패널/LIPSA_Estd3s.csv.
+
+
 import os, json, sqlite3, unicodedata
 import numpy as np, pandas as pd
 NFC = lambda s: unicodedata.normalize("NFC", str(s))
@@ -16,11 +16,11 @@ E1 = pd.read_csv(os.path.join(PAN, "LIPS_Estd3s.csv")); E0 = pd.read_csv(os.path
 Y = pd.concat([E0, E1])[["year", "fbd_region", "cases", "offset"]].rename(columns={"cases": "lips_cases", "offset": "lips_examinees"}); Y["fbd_region"] = Y.fbd_region.map(NFC)
 P = D.merge(T, on=["year", "fbd_region"], how="left", validate="one_to_one").merge(RY, on=["year", "fbd_region"], how="left", validate="one_to_one").merge(Y, on=["year", "fbd_region"], how="left", validate="one_to_one")
 assert len(P) == 229 * 14, len(P)
-# 수급률 양쪽 규칙 재확인(이미 정정본이면 0)
+
 r = P.fbd_region.map(P[P.year.isin([2020, 2024])].groupby("fbd_region").basic_livelihood_rate.mean())
-bad = P.year.isin([2021, 2022, 2023]) & ((P.basic_livelihood_rate < 0.2 * r) | (P.basic_livelihood_rate > 5 * r)); print("수급률 규칙 위반 칸(정정본이면 0):", int(bad.sum()))
-# 수검률: SQLite chk__수검률 = 1차 수검인원 ÷ 대상인원 × 100(KOSIS DT_35007_N001/N001_1, 종로 2018-24 일치 확인).
-#  세종 2012-24 SQLite 빈칸 → 원표 시도 머리행(세종) 수검/대상으로 채움. 나머지 7칸(부천 2016, 용인·창원·천안 2011-12) → 시군구 안 선형 보간·끝은 가장 가까운 연도(기록).
+bad = P.year.isin([2021, 2022, 2023]) & ((P.basic_livelihood_rate < 0.2 * r) | (P.basic_livelihood_rate > 5 * r)); print("cells violating the livelihood-rate rule (0 if corrected):", int(bad.sum()))
+
+
 SRCN = os.path.join(ROOT, "00_원천", "C_NHIS_검진보험")
 U = pd.concat([pd.read_csv(os.path.join(SRCN, f), encoding="utf-8-sig", low_memory=False) for f in ["DT_35007_N001.csv", "DT_35007_N001_1.csv"]])
 U = U[U.C1_NM.astype(str).str.contains("세종") & (U.C2_NM == "합계")].drop_duplicates(["PRD_DE", "ITM_NM"]).pivot(index="PRD_DE", columns="ITM_NM", values="DT").astype(float)
@@ -28,11 +28,11 @@ sju = (U["수검인원"] / U["대상인원"] * 100); print("세종 수검률(원
 m = (P.fbd_region == NFC("세종시세종시")) & P.screening_uptake.isna(); P.loc[m, "screening_uptake"] = P.loc[m, "year"].map(sju).values
 n0 = int(P.screening_uptake.isna().sum()); miss = P.loc[P.screening_uptake.isna(), ["fbd_region", "year"]].values.tolist()
 P = P.sort_values(["fbd_region", "year"]); P["screening_uptake"] = P.groupby("fbd_region").screening_uptake.transform(lambda s: s.interpolate(limit_area="inside").bfill().ffill())
-print(f"수검률 보간·이월 {n0}칸:", miss); P = P.sort_values(["year", "fbd_region"]).reset_index(drop=True)
-print("결측 칸:", P.isna().sum()[P.isna().sum() > 0].to_dict())
-print("세종 결측 열:", P[P.fbd_region == NFC("세종시세종시")].isna().sum()[lambda s: s > 0].to_dict())
+print(f"uptake interpolated or carried {n0} cells:", miss); P = P.sort_values(["year", "fbd_region"]).reset_index(drop=True)
+print("missing cells:", P.isna().sum()[P.isna().sum() > 0].to_dict())
+print("Sejong missing columns:", P[P.fbd_region == NFC("세종시세종시")].isna().sum()[lambda s: s > 0].to_dict())
 P.to_csv(os.path.join(PAN, POOL), index=False, encoding="utf-8-sig")
-# 비교 결과 패널(2018-24)
+
 for t2, src in [("LIPTC", "LIPT"), ("UNDXDC", "UNDXD")]:
     S = pd.read_csv(os.path.join(AN, src, f"panel_{src}_std3.csv"), usecols=["year", "fbd_region", "cases", "E"]); S = S[S.year.between(2018, 2024)]
     os.makedirs(os.path.join(AN, t2), exist_ok=True); S[["year", "fbd_region", "cases"]].to_csv(os.path.join(AN, t2, f"panel_{t2}.csv"), index=False)
@@ -45,7 +45,7 @@ NEG = ["hit_and_run_rate", "traffic_culture_index", "fires_per_10000"]
 SENS = ["tertiary_educated_share", "unmet_need_rate", "living_alone_elderly"]
 HYP = ["walking_rate", "moderate_pa_rate", "public_sport_fac_per100k", "village_sport_fac_per100k",
        "obesity_rate", "high_risk_drinking", "smoking_rate", "screening_uptake", "im_specialists_per100k", "basic_livelihood_rate"]
-OBES = "kchs__DT_H_OBE_OBE__SR"   # 비만율은 마스터 KCHS 열 이름으로(풀 obesity_rate와 값 동일, 2019 미조사 해는 80이 시군구 안 보간) → _st_config 자동 S1b(비만 추가 민감도)가 중복 변수로 특이해지는 것을 막음
+OBES = "kchs__DT_H_OBE_OBE__SR"
 X = lambda L: [OBES if v == "obesity_rate" else "ext__" + v for v in L]
 XK = lambda v: OBES if v == "obesity_rate" else "ext__" + v
 EXPECT = {
@@ -93,4 +93,4 @@ w_aux = {"W1_2011-14": [2011, 2014], "W2_2015-17": [2015, 2017]}
 j = make("aux", "LIPSA_Estd3s.csv", (2011, 2017), w_aux, 2015, LAB_M.replace("2018-2024", "2011-2017"), " [aux: pre-2018 judgement definition]")
 j["rules"]["windows_note"] = "보조 기간 2011-17(2018 판정 정의 단절 이전). S5 COVID 단계는 해당 없음(placeholder로 건너뜀)."
 json.dump(j, open(os.path.join(HERE, "sets_LIPS_aux.json"), "w"), ensure_ascii=False, indent=1)
-print("sets 저장: std3, s577, s2, sc, aux")
+print("sets saved: std3, s577, s2, sc, aux")

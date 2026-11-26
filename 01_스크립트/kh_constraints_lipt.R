@@ -1,5 +1,3 @@
-# kh_constraints.R — 성분 인식 Knorr-Held II·III·IV 행렬·제약(2026-11-04, BRCA kh_repair/kh_constraints.R에서 일반화 이식; 원 검증: final_cc2/validation.json)
-# rankdef: II = n, III = cT, IV = n + c(T-1); 성분별 inla.scale.model. 단일 노드 성분은 중단.
 # Pure matrix construction; never fits a model. Spatial order = saved graph order.
 # time-major vectorization: st = (time - 1) * n + area.
 kh_components <- function(g) {
@@ -69,7 +67,7 @@ kh_check_panel <- function(d, n, vars) {
   # All currently authorized KH/KH4x variants retain the full 2011–2024 panel.
   stopifnot(identical(sort(unique(as.integer(d$year))),2011:2024),
             all(d$time == d$year-2010), all(d$yiid == d$time),
-            nrow(d)<=n*14L, all(d$area %in% seq_len(n)))   # (LIPT 복제본) 미관측 시군구 행 없음 허용
+            nrow(d)<=n*14L, all(d$area %in% seq_len(n)))
   st <- (d$time-1L)*n+d$area
   stopifnot(!anyDuplicated(st),all(st>=1 & st<=n*14L),
             all(is.finite(d$E)),all(d$E>0),all(is.finite(d$cases)))

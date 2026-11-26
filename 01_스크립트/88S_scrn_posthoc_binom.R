@@ -1,5 +1,3 @@
-#  사후(결과 본 뒤): 체육 변수 역방향(걷기·마을체육시설 −, 가설 +)·창별 불안정 → P1 민감도 전용 변수 추가 · P2 체육 변수 단독(+강제) · P3 인구밀도(log) · P4 지역 간/지역 내 분해 · P10 체육 4종만(+강제)
-#  사전지정(설계 메모 11/18): P5 2020-21 제외 · P6 2019-24만(대상 확대 이후) · P7 제조업 종사자 비중 추가(2017-24, 세종 원천 빈칸 → 결과 NA) · P8 인구 기반 성×연령 기대치(off_sens)
 suppressPackageStartupMessages({library(INLA);library(sf);library(jsonlite)})
 TAG<-"SCRN";VER<-"std3";inla.setOption(num.threads="1:1")
 OUTD<-file.path("..","04_분석",TAG);RES<-file.path(OUTD,paste0("results_",VER))
@@ -13,7 +11,7 @@ pc<-list(prec=list(prior="pc.prec",param=c(0.5,0.01)),phi=list(prior="pc",param=
 z<-function(x)(x-mean(x,na.rm=TRUE))/sd(x,na.rm=TRUE)
 fit<-function(vars,d=DD,off="off"){d$OFF<-d[[off]];f<-as.formula(paste("cases ~ 1 +",paste(sprintf("`%s`",vars),collapse="+"),"+ f(area,model='bym2',graph=g,scale.model=TRUE,constr=TRUE,hyper=pc) + f(time,model='rw1',scale.model=TRUE,hyper=pcp) + f(yiid,model='iid',hyper=pcp) + f(obs,model='iid',hyper=pcp) + offset(OFF)"))
   m<-inla(f,family="binomial",data=d,Ntrials=d$Ntr,control.fixed=list(mean=0,prec=4,mean.intercept=0,prec.intercept=0.001),control.compute=list(waic=TRUE),control.predictor=list(link=1),control.inla=list(control.vb=list(emergency=50)))
-  pp<-m$summary.fitted.values$mean[seq_len(nrow(d))];stopifnot(all(pp>0&pp<1));m}   # 이항 적합값 = 확률 척도(link=1: 결과 NA 행도 확률 척도로 — 11/19 P5에서 NA 행이 선형예측자 척도로 나와 stopifnot이 잡음)
+  pp<-m$summary.fitted.values$mean[seq_len(nrow(d))];stopifnot(all(pp>0&pp<1));m}
 out<-NULL
 add<-function(an,m,vs){fx<-m$summary.fixed;for(v in vs){if(!v%in%rownames(fx))next;r<-fx[v,];out<<-rbind(out,data.frame(analysis=an,cov=v,OR=round(exp(r$mean),4),lo=round(exp(r$`0.025quant`),4),hi=round(exp(r$`0.975quant`),4),cred=(exp(r$`0.025quant`)>1|exp(r$`0.975quant`)<1),WAIC=round(m$waic$waic,1)))};cat(an,"done\n");write.csv(out,file.path(RES,"S46_scrn_posthoc.csv"),row.names=FALSE)}
 PA<-c("ext__walking_rate","moderate_pa_rate","ext__public_sport_fac_per100k","ext__village_sport_fac_per100k");REP<-unique(c(PA,HYP))

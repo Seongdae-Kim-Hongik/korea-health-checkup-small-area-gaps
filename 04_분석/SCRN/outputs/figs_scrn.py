@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-#  Fig 1 (A) 14년 표준화 수검비(SUR) 지도 + Gi* 핫·콜드 윤곽 (B) 주모형 잔차 시군구 효과(오즈비) 지도 (C) 전국 수검률 남녀 2011-24
-#  Fig 2 독거노인·대졸·걷기·공공체육시설의 모형별 오즈비(1 SD)
+# figs_scrn.py: draws Figures 1 and 2 from numbers_scrn.json, gi_scrn.csv and the district boundary file (ST_DATA_ROOT). Output: outputs/figs/Fig1.png, Fig2.png and outputs/out/Figures/Figure_1.tif, Figure_2.tif.
+
 import os, json, numpy as np, pandas as pd, geopandas as gpd, matplotlib
 matplotlib.use("Agg"); import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap, BoundaryNorm
@@ -8,8 +8,8 @@ from matplotlib.patches import Patch, Rectangle, Polygon
 from matplotlib.lines import Line2D
 from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
-SHP = os.environ.get("ST_SHP", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "data", "boundary", "final.shp"))
-HERE = os.path.dirname(os.path.abspath(__file__)); FIG = os.path.join(HERE, "figs"); OUTF = os.path.join(os.path.dirname(HERE), "out", "Figures"); os.makedirs(FIG, exist_ok=True); os.makedirs(OUTF, exist_ok=True)
+SHP = os.path.join(os.environ["ST_DATA_ROOT"], "기타", "R_Studio", "FBD_DATA_ZIP", "final.shp")
+HERE = os.path.dirname(os.path.abspath(__file__)); FIG = os.path.join(HERE, "figs"); OUTF = os.path.join(HERE, "out", "Figures"); os.makedirs(FIG, exist_ok=True); os.makedirs(OUTF, exist_ok=True)
 N = json.load(open(os.path.join(HERE, "numbers_scrn.json"))); GI = pd.read_csv(os.path.join(HERE, "gi_scrn.csv"), dtype={"sigungu_cd": str})
 MM = 1 / 25.4; W = 170 * MM; LW = 0.3
 plt.rcParams.update({"font.family": "Arial", "font.size": 8, "legend.fontsize": 7.5, "legend.title_fontsize": 8, "axes.linewidth": 1.0, "xtick.major.width": 1.0, "ytick.major.width": 1.0, "lines.linewidth": 1.0, "pdf.fonttype": 42})
@@ -48,7 +48,7 @@ for x0 in (2017.5, 2018.5, 2019.5): c.axvline(x0, color="#404040", lw=1.0, ls=":
 c.set_ylim(60, 85); c.set_xticks(ys[::1]); c.set_xticklabels([str(y) if y % 2 == 1 else "" for y in ys]); c.set_ylabel("Uptake, %"); c.set_xlabel("Year")
 c.legend(frameon=False, ncol=3, loc="lower left", fontsize=7); c.spines[["top", "right"]].set_visible(False); letter(c, "C", dx=-0.09, dy=1.0)
 s1 = save(fig, 1, 600)
-# Fig 2 — 모형별 오즈비
+
 LAB = {"alone_elderly": "Older adults\nliving alone", "tertiary": "Tertiary-educated\nadults", "walking": "Walking\nrate", "public_fac": "Public sports\nfacilities"}
 COL = {"alone_elderly": "ext__living_alone_elderly", "tertiary": "tertiary_educated_share", "walking": "ext__walking_rate", "public_fac": "ext__public_sport_fac_per100k"}
 ORD = list(LAB); PH = N["ph"]

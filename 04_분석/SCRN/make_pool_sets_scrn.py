@@ -73,4 +73,4 @@ for ver in ["std3", "s577", "s2", "s8"]:
     fp = os.path.join(HERE, f"sets_SCRN_{ver}.json"); json.dump(j, open(fp, "w"), ensure_ascii=False, indent=1)
     out[ver] = hashlib.sha256(open(fp, "rb").read()).hexdigest()
 pd.Series(out, name="sha256").to_csv(os.path.join(HERE, "sets_SCRN_sha256_261118.csv"))
-print("sets 저장·해시:", out)
+print("sets saved, hashes:", out)

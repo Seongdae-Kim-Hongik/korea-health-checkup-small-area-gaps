@@ -4,7 +4,7 @@ S="${ST_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}"; cd "$S"; export SK_RSLOTS=
 T=SCRN; GR="$S/04_분석/$T/graph_593.graph"; D=261118; NW=2; NMV=200; L="$S/04_분석/$T"
 wl(){ while true; do l5=$(sysctl -n vm.loadavg | awk '{print $3}'); awk -v l=$l5 'BEGIN{exit !(l>=14)}' || break; echo "load5=$l5 ≥14 wait 10m $(date +%H:%M)"; sleep 600; done; }
 q(){ while [ "$(jobs -rp | wc -l)" -ge 2 ]; do sleep 15; done; }
-export ST_VER=std3 ST_THREADS=1 ST_GRAPH="$GR" ST_FAMS=binomial,binomial_olre   # 11/19 00:16: betabinomial 61분 미수렴(INLA 1스레드) → 후보에서 제외, 기록 results_std3/S1_betabinomial_note.txt
+export ST_VER=std3 ST_THREADS=1 ST_GRAPH="$GR" ST_FAMS=binomial,binomial_olre
 wl; (cd 01_스크립트 && ST_MV_STOP=1 $RS Rscript 81_fit_inla_binom_scrn.R $T) > $L/run_std3_81a.log 2>&1 || exit 1
 FAM=$(grep -o "main_family=[a-z_]*" $L/HM_best_${T}_std3.txt | cut -d= -f2); echo "FAM=$FAM"
 wl; $RS Rscript 01_스크립트/81R_refit_check_scrn.R > $L/run_std3_81R.log 2>&1 &

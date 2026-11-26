@@ -1,5 +1,4 @@
-"""89g — 88g 민감도 결과 종합(89c 정신질환판 일반화, 2026-10-21). 사용: python3 01_스크립트/89g_sens_combine.py <TAG> <VER>
-산출 results_<VER>/S41_retention_by_cov.csv, S41_noise_rubin.csv, S41_nco_detail.csv, S41_evalues.csv, S41_leaveout_ranges.csv, S41_summary.md"""
+"""Part of the analysis pipeline; inputs and outputs are listed in README.md (Pipeline)."""
 import os, sys, glob, math, numpy as np, pandas as pd
 from decimal import Decimal, ROUND_HALF_UP
 TAG, VER = sys.argv[1], sys.argv[2]; SUF = f"_{VER}" if VER else ""

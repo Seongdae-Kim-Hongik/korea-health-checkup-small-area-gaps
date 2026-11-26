@@ -1,16 +1,9 @@
-# 88k — (2026-10-21 공통판: TAG·FOCAL 환경변수, S20_panel_extra 없으면 건너뜀, 산출 S43_; 쓰는 그룹 nb·struct·kh·combine) 원본 88 — 정신질환(MENTAL, 주분석 판 std) 리뷰어 대비 민감도·보충 분석. 81 의 우도(NB)·강제통제·주 세트(S1_narrative_full)·prior·제약을 그대로 재사용.
-#  사용(01_스크립트/ 에서): Rscript 88_mental_sensitivity.R <GROUP>   GROUP = nb | struct | kh | conf | period | maps | combine
-#  입력(읽기만): 04_분석/MENTAL/{config,panel,panel_INFO,HM_best}_MENTAL_std.*, results_std/nb_MENTAL.graph, results_std/S9·S10, results_std/S20_panel_extra.csv(88a)
-#  산출(새 이름만): results_std/S43_part_<analysis>.csv(분석별) → combine: results_std/S43_sensitivity_IRR.csv(긴 형식) · S43_sensitivity_fit.csv
 #                   maps: results_std/S20_obs_fit_resid.csv, figs_std/S20_obs_fit_resid_pooled.png · _windows.png
-#  분석 목록(그룹): nb = main_queen(주, 재적합) · knn3·4·5 | struct = ICAR(besag)·iid·no_spatial·PC prior 완화 2종
-#    kh = Knorr-Held Type II·III·IV(generic0, Kronecker 구조 + 합 0 제약) | conf = RSR·도로포장률 추가·도시성 5분위·도시성 rw2·관외진료 비율·의원 밀도·둘 다
-#    period = 2020-21 제외·2015년 시작·경계변경 4곳 제외·boundary_flag 전체 제외·치매 제외 E(E_std_nondem)
 suppressPackageStartupMessages({library(INLA);library(sf);library(spdep);library(jsonlite);library(Matrix)})
 args<-commandArgs(trailingOnly=TRUE);GROUP<-args[1];stopifnot(!is.na(GROUP))
-TAG<-Sys.getenv("TAG",unset="MENTAL");FOCAL<-Sys.getenv("FOCAL",unset="walking_practice_rate");VER<-Sys.getenv("ST_VER",unset="std");SUF<-paste0("_",VER)   # _v 사본(2026-10-19): 판 인자화, 원본 88*.R 은 std 고정 그대로
+TAG<-Sys.getenv("TAG",unset="MENTAL");FOCAL<-Sys.getenv("FOCAL",unset="walking_practice_rate");VER<-Sys.getenv("ST_VER",unset="std");SUF<-paste0("_",VER)
 ROOT<-normalizePath(file.path(dirname(sub("--file=","",grep("--file=",commandArgs(),value=TRUE))),".."))
-source(file.path(ROOT,"01_스크립트","kh_constraints_lipt.R"))   # 2026-11-04 성분 인식 KH
+source(file.path(ROOT,"01_스크립트","kh_constraints_lipt.R"))
 SHP<-Sys.getenv("ST_SHP",file.path(normalizePath(file.path(dirname(sub("--file=","",grep("--file=",commandArgs(),value=TRUE))),"..")),"data","boundary","final.shp"))
 OUTD<-file.path(ROOT,"04_분석",TAG);RES<-file.path(OUTD,paste0("results",SUF));FIG<-file.path(OUTD,paste0("figs",SUF))
 inla.setOption(num.threads="1:1")
@@ -25,20 +18,19 @@ if(file.exists(file.path(RES,"S20_panel_extra.csv"))){EX<-read.csv(file.path(RES
 DD<-merge(DD,EX,by=c("year","fbd_region"),all.x=TRUE,sort=FALSE);stopifnot(nrow(DD)==INFO$n_rows)}
 WIN<-INFO$windows
 
-## 그래프(81 과 같은 규칙) + 81 이 저장한 그래프와 대조
 G<-st_read(SHP,quiet=TRUE);G$region<-enc2utf8(G$region);n<-nrow(G)
 nb<-poly2nb(G,queen=TRUE);isl<-which(card(nb)==0);cen<-st_coordinates(st_centroid(st_geometry(G)))
 if(length(isl)){kn<-knearneigh(cen,k=1)$nn;for(i in isl){j<-kn[i,1];nb[[i]]<-sort(unique(c(nb[[i]][nb[[i]]>0],j)));nb[[j]]<-sort(unique(c(nb[[j]][nb[[j]]>0],i)))}}
-if(nzchar(Sys.getenv("ST_GRAPH"))){sg<-inla.read.graph(Sys.getenv("ST_GRAPH"));stopifnot(sg$n==nrow(G));for(i in seq_len(sg$n))nb[[i]]<-as.integer(sort(sg$nbs[[i]]));attr(nb,"sym")<-TRUE}   # 2026-11-04: ST_GRAPH 지정 시 외부 그래프(예 593 edge contact) 사용, 미지정이면 기존 queen+섬 규칙
+if(nzchar(Sys.getenv("ST_GRAPH"))){sg<-inla.read.graph(Sys.getenv("ST_GRAPH"));stopifnot(sg$n==nrow(G));for(i in seq_len(sg$n))nb[[i]]<-as.integer(sort(sg$nbs[[i]]));attr(nb,"sym")<-TRUE}
 g<-inla.read.graph(file.path(RES,sprintf("nb_%s.graph",TAG)));stopifnot(g$n==n,all(g$nnbs==card(nb)))
 DD<-DD[order(DD$year,match(DD$fbd_region,G$region)),];DD$area<-match(DD$fbd_region,G$region);Y0<-min(DD$year);DD$time<-DD$year-Y0+1;DD$yiid<-DD$time;DD$id<-seq_len(nrow(DD))
 pcU<-function(u=0.5,a=0.01,pu=0.5,pa=2/3)list(prec=list(prior="pc.prec",param=c(u,a)),phi=list(prior="pc",param=c(pu,pa)))
-pc<-pcU();pcp<-list(prec=list(prior="pc.prec",param=c(0.5,0.01)));if(nzchar(Sys.getenv("KH_INIT")))pcp$prec$initial<-as.numeric(Sys.getenv("KH_INIT"))   # 2026-11-05 HTN KH II Q 음수 assert 시 초기 로그정밀도 지정 재시도
+pc<-pcU();pcp<-list(prec=list(prior="pc.prec",param=c(0.5,0.01)));if(nzchar(Sys.getenv("KH_INIT")))pcp$prec$initial<-as.numeric(Sys.getenv("KH_INIT"))
 CF<-list(mean=0,prec=4,mean.intercept=0,prec.intercept=0.001)
 SPf<-function(gr="g",hyper="pc",extra="")sprintf("f(area,model='bym2',graph=%s,scale.model=TRUE,constr=TRUE,hyper=%s%s)",gr,hyper,extra)
 TI<-"f(time,model='rw1',scale.model=TRUE,hyper=pcp)";IT<-"f(yiid,model='iid',hyper=pcp)"
 bt<-function(v)sprintf("`%s`",v)
-DD$obs<-seq_len(nrow(DD));OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f   # 이항+관측 수준 iid(logit-정규 과산포)
+DD$obs<-seq_len(nrow(DD));OLRE<-"f(obs,model='iid',hyper=list(prec=list(prior='pc.prec',param=c(0.5,0.01))))";FAMI<-function(f)if(f=="binomial_olre")"binomial" else f
 if(MAINFAM=="binomial_olre"){MAINFAM<-"binomial";IT<-paste0(IT,"+",OLRE)}
 fit<-function(vars,data=DD,sp=SPf(),extra=character(0),ecol="E",robust=FALSE,env=parent.frame()){
   OFV<-if(ecol=="E_sens")"off_sens" else "off";rhs<-c("1",bt(vars),extra,sp,TI,IT,sprintf("offset(%s)",OFV));rhs<-rhs[nzchar(rhs)];form<-as.formula(paste("cases ~",paste(rhs,collapse="+")),env=env)
@@ -59,10 +51,9 @@ save_part<-function(an,grp,m,vars,data,t0,note="",cmp="",added=character(0)){
 done<-function(an)file.exists(file.path(RES,sprintf("S43_part_%s.csv",an)))
 run<-function(an,grp,expr_fun,vars=MAINV,data=DD,note="",cmp=""){if(done(an)){LOG("%s exists, skip",an);return(invisible())};t0<-Sys.time();m<-expr_fun();save_part(an,grp,m,vars,data,t0,note,cmp);invisible(m)}
 
-## ───────── 1. 이웃 정의 ─────────
 if(GROUP=="nb"){
   m<-run("main_queen","1_neighbour",function()safe(MAINV),note="주모형 재적합(S3 와 같은 사양)",cmp="neighbour")
-  if(!is.null(m)){stopifnot(all(m$summary.fitted.values$mean[seq_len(nrow(DD))]>0&m$summary.fitted.values$mean[seq_len(nrow(DD))]<1));mu<-m$summary.fitted.values$mean[seq_len(nrow(DD))]*DD$Ntr/DD$E   # 지도(9)용 적합 RR 저장(이항: N·p/E)
+  if(!is.null(m)){stopifnot(all(m$summary.fitted.values$mean[seq_len(nrow(DD))]>0&m$summary.fitted.values$mean[seq_len(nrow(DD))]<1));mu<-m$summary.fitted.values$mean[seq_len(nrow(DD))]*DD$Ntr/DD$E
     fx<-m$summary.fixed$mean;names(fx)<-gsub("`","",rownames(m$summary.fixed));X<-as.matrix(DD[,MAINV]);lpf<-fx["(Intercept)"]+X%*%fx[MAINV]
     write.csv(data.frame(year=DD$year,fbd_region=DD$fbd_region,window=DD$window,cases=DD$cases,E=DD$E,fitted_RR=mu,fixed_lp=as.numeric(lpf)),file.path(RES,"S20_fitted_main.csv"),row.names=FALSE,fileEncoding="UTF-8")}
   for(k in 3:5){an<-sprintf("knn%d",k);if(done(an))next
@@ -70,7 +61,6 @@ if(GROUP=="nb"){
     run(an,"1_neighbour",function()safe(MAINV,sp=SPf("gk")),note=sprintf("KNN k=%d(중심점, 대칭화), 평균 이웃 %.2f, 부분그래프 %d",k,mean(card(nbk)),n.comp.nb(nbk)$nc),cmp="neighbour")}
 }
 
-## ───────── 2. 공간 구조·prior ─────────
 if(GROUP=="struct"){
   run("icar_besag","2_structure",function()safe(MAINV,sp="f(area,model='besag',graph=g,scale.model=TRUE,constr=TRUE,hyper=pcp)"),note="ICAR(besag)만",cmp="structure")
   run("iid_only","2_structure",function()safe(MAINV,sp="f(area,model='iid',hyper=pcp)"),note="공간 iid 만",cmp="structure")
@@ -83,7 +73,7 @@ if(GROUP=="struct"){
 
 ## ───────── 3. Knorr-Held II·III·IV ─────────
 if(GROUP=="kh"){
-  khfit<-function(type,d) kh_fit_repaired(type,d,MAINV)   # 2026-11-04 성분 인식 제약(kh_constraints.R)
+  khfit<-function(type,d) kh_fit_repaired(type,d,MAINV)
   for(ty in c("II","III","IV")){an<-sprintf("KH_type%s",ty);if(done(an))next
     inla.setOption(inla.timeout=if(ty=="IV")5400 else 0)
     t0<-Sys.time();m<-khfit(ty,DD);note<-sprintf("Knorr-Held Type %s(BYM2+RW1+iid 위에 공간×시간 상호작용, 합 0 제약)",ty);d<-DD
@@ -94,10 +84,10 @@ if(GROUP=="kh"){
 
 
 if(GROUP=="kh4x"){
-  khfit<-function(type,d) kh_fit_repaired(type,d,MAINV)   # 2026-11-04 성분 인식 제약(kh_constraints.R)
+  khfit<-function(type,d) kh_fit_repaired(type,d,MAINV)
 
   ROBV<-{x<-read.csv(file.path(RES,"S7_multiverse_summary.csv"),stringsAsFactors=FALSE);x$cov[x$robust]}
-  khv<-function(vars,d) kh_fit_repaired("IV",d,vars)   # 2026-11-04 성분 인식 제약(kh_constraints.R)
+  khv<-function(vars,d) kh_fit_repaired("IV",d,vars)
   inla.setOption(inla.timeout=5400)
   SUB<-Sys.getenv("SUB","all")
   if(SUB%in%c("all","a")&&!done("KH4_bw_twoway")){d<-DD;BW<-character(0)
@@ -130,9 +120,7 @@ if(GROUP=="kh4x"){
   inla.setOption(inla.timeout=0)
 }
 
-## ───────── 4~6. 공간 교란·음성대조·도시성·의료 이용 ─────────
 if(GROUP=="conf"){
-  # RSR: BYM2 총 공간효과(잠재벡터 앞 n 개)를 시군구 평균 공변량(+절편은 constr)에 직교하도록 추가 제약
   if(!done("RSR")){Xb<-apply(as.matrix(DD[,MAINV]),2,function(x)tapply(x,DD$area,mean))[as.character(1:n),];Xb<-scale(Xb,scale=FALSE)
     RSRC<<-list(A=cbind(t(Xb),matrix(0,ncol(Xb),n)),e=rep(0,ncol(Xb)))
     run("RSR","4_spatial_confounding",function()safe(MAINV,sp=SPf(extra=",extraconstr=RSRC"),env=.GlobalEnv),note=sprintf("RSR: BYM2 총효과 ⟂ 시군구 평균 공변량 %d개(제약)",ncol(Xb)),cmp="main_data")}
@@ -147,7 +135,6 @@ if(GROUP=="conf"){
   run("access_both","6_care_use",function()safe(c(MAINV,"outside_care_share","clinics_per_100k")),vars=c(MAINV,"outside_care_share","clinics_per_100k"),note="관외진료 비율 + 의원 밀도 추가",cmp="main_data")
 }
 
-## ───────── 7~8. 기간·지역·치매 offset ─────────
 if(GROUP=="period"){
   d<-DD;d$cases[d$year%in%2020:2021]<-NA
   run("excl_2020_2021","7_period_region",function()safe(MAINV,data=d),data=d,note="2020-2021 결측 처리(시간 색인 유지)",cmp="excl_2020_2021")
@@ -160,13 +147,11 @@ if(GROUP=="period"){
   run("dementia_E_nondem","8_dementia",function()safe(MAINV,ecol="E_sens"),note=sprintf("offset = %s(치매 112 제외 연령 프로파일, S10 재현)",INFO$offset_sensitivity),cmp="E_nondem")
 }
 
-## ───────── 9. 관측·적합·잔차 지도 ─────────
 if(GROUP=="maps"){suppressPackageStartupMessages({library(ggplot2);library(dplyr);library(patchwork)})
   F<-read.csv(file.path(RES,"S20_fitted_main.csv"),fileEncoding="UTF-8",stringsAsFactors=FALSE);F$fbd_region<-enc2utf8(F$fbd_region);F$mu<-F$fitted_RR*F$E
   per<-c(pooled="2011-2024",setNames(sapply(names(WIN),function(k)sprintf("%d-%d",WIN[[k]][1],WIN[[k]][2])),names(WIN)))
   agg<-do.call(rbind,lapply(names(per),function(p){x<-if(p=="pooled")F else F[F$window==p,]
-    # 공변량 예측 RR: exp(고정효과 선형예측)을 기간 내 Σ E·pred = Σ cases 로 재척도(무작위효과 제외)
-    x$pf<-exp(x$fixed_lp);x$pf<-x$pf*sum(x$cases)/sum(x$E*x$pf);x$Epf<-x$E*x$pf   # (dplyr 함정: summarise 안에서 E 를 먼저 합치면 뒤의 E*pf 가 합계 E 를 씀 → 행 단위로 미리 계산)
+    x$pf<-exp(x$fixed_lp);x$pf<-x$pf*sum(x$cases)/sum(x$E*x$pf);x$Epf<-x$E*x$pf
     a<-x%>%group_by(fbd_region)%>%summarise(cases=sum(cases),Esum=sum(E),mu=sum(mu),Epf=sum(Epf),.groups="drop")%>%rename(E=Esum)
     data.frame(period=p,years=per[[p]],fbd_region=a$fbd_region,cases=a$cases,E=round(a$E,1),SIR_obs=round(a$cases/a$E,4),RR_fit=round(a$mu/a$E,4),RR_cov=round(a$Epf/a$E,4),
       resid_fit=round(a$cases/a$mu,4),resid_cov=round(a$cases/a$Epf,4),stringsAsFactors=FALSE)}))
@@ -194,17 +179,14 @@ if(GROUP=="maps"){suppressPackageStartupMessages({library(ggplot2);library(dplyr
 }
 
 ## ───────── combine ─────────
-#  S50_resid_moran_by_spec.csv : 사양별 잔차 Moran(81 S3와 같은 Pearson 잔차·시군구 평균·999 순열, 11/18부터 양측)  (H-M5, H-BZ1)
-#  S50_parsimonious.csv        : 강제통제 + 다중우주 강건 변수만의 간결 모형 계수·WAIC        (H-M9, H-BZ3)
-#  S50_region_slopes.csv       : 강건 변수별 5권역 기울기(권역별 변수 분리) + WAIC 차이      (H-M6, H-AB4)
 if(GROUP=="review"){
   F50<-file.path(RES,"S50_resid_moran_by_spec.csv");F50p<-file.path(RES,"S50_parsimonious.csv");F50r<-file.path(RES,"S50_region_slopes.csv")
   OBSR<-G$region%in%unique(DD$fbd_region[!is.na(DD$cases)])
-  moran_obs<-function(x,regions){k<-!is.na(x);if(sum(k)<10)return(list(statistic=NA,p.value=NA));kk<-G$region%in%regions[k];nbk<-subset(nb,kk);lwk<-nb2listw(nbk,style="W",zero.policy=TRUE);moran.mc(x[k][match(G$region[kk],regions[k])],lwk,999,zero.policy=TRUE,alternative="two.sided")}   # 2026-11-18 잔차 Moran 양측 순열(음의 I=과평활도 잡음)
+  moran_obs<-function(x,regions){k<-!is.na(x);if(sum(k)<10)return(list(statistic=NA,p.value=NA));kk<-G$region%in%regions[k];nbk<-subset(nb,kk);lwk<-nb2listw(nbk,style="W",zero.policy=TRUE);moran.mc(x[k][match(G$region[kk],regions[k])],lwk,999,zero.policy=TRUE,alternative="two.sided")}
   rmoran<-function(m){pp<-m$summary.fitted.values$mean[seq_len(nrow(DD))];stopifnot(all(pp>0&pp<1));mu<-pp*DD$Ntr;rho<-if(MAINFAM=="betabinomial")m$summary.hyperpar[grep("overdispersion",rownames(m$summary.hyperpar))[1],"mean"] else 0
     pr<-(DD$cases-mu)/sqrt(DD$Ntr*pp*(1-pp)*(1+(DD$Ntr-1)*rho));if(!is.null(m$summary.random$obs))pr<-m$summary.random$obs$mean   ;pra<-tapply(pr,DD$area,mean);set.seed(1);mm<-moran_obs(as.numeric(pra[as.character(which(OBSR))]),G$region[OBSR]);c(I=round(unname(mm$statistic),4),p=round(mm$p.value,4))}
   S7s<-read.csv(file.path(RES,"S7_multiverse_summary.csv"),stringsAsFactors=FALSE);ROBV<-S7s$cov[S7s$robust%in%c(TRUE,"TRUE","True")]
-  if(nzchar(Sys.getenv("ROBV_OVERRIDE")))ROBV<-strsplit(Sys.getenv("ROBV_OVERRIDE"),",")[[1]]   # 2026-11-08 IHD: 강건 변수 0개일 때 주모형 credible 변수로 간결 모형·권역 기울기(사후, 보고 시 명시)
+  if(nzchar(Sys.getenv("ROBV_OVERRIDE")))ROBV<-strsplit(Sys.getenv("ROBV_OVERRIDE"),",")[[1]]
   LOG("robust: %s",paste(ROBV,collapse=", "))
   specs<-list(principal=list(v=MAINV,sp=SPf()),forced_only=list(v=FORCED,sp=SPf()),parsimonious=list(v=unique(c(ROBV,FORCED)),sp=SPf()),
               no_spatial=list(v=MAINV,sp=""),iid_district=list(v=MAINV,sp="f(area,model='iid',hyper=pcp)"),icar_district=list(v=MAINV,sp="f(area,model='besag',graph=g,scale.model=TRUE,constr=TRUE,hyper=pcp)"),
@@ -215,7 +197,7 @@ if(GROUP=="review"){
       if(nm=="parsimonious"){r<-do.call(rbind,lapply(s$v,function(v)irr(m,v)));r$role<-ifelse(r$cov%in%FORCED,"forced","robust");r$WAIC<-round(m$waic$waic,1);write.csv(r,F50p,row.names=FALSE,fileEncoding="UTF-8")}
       LOG("%-18s WAIC %9.1f  resid Moran %.3f (p %.3f)  %.1f min",nm,rows[[nm]]$WAIC,rm["I"],rm["p"],as.numeric(difftime(Sys.time(),t0,units="mins")))}
     write.csv(do.call(rbind,rows),F50,row.names=FALSE,fileEncoding="UTF-8")}
-  if(!file.exists(F50r)){   # 5권역(시도 이름 → 권역; 이름 결합은 시도 수준 고정 사전으로만)
+  if(!file.exists(F50r)){
     RG<-c("서울시"="Capital","인천시"="Capital","경기도"="Capital","대전시"="Chungcheong","세종시"="Chungcheong","충청북도"="Chungcheong","충청남도"="Chungcheong","광주시"="Honam","전라북도"="Honam","전라남도"="Honam",
           "부산시"="Yeongnam","대구시"="Yeongnam","울산시"="Yeongnam","경상북도"="Yeongnam","경상남도"="Yeongnam","강원도"="Gangwon-Jeju","제주도"="Gangwon-Jeju")
     DD$rg<-unname(RG[enc2utf8(DD$sido_std)]);if(anyNA(DD$rg))stop("권역 미매칭 시도: ",paste(unique(DD$sido_std[is.na(DD$rg)]),collapse=","))
@@ -225,7 +207,7 @@ if(GROUP=="review"){
       r<-do.call(rbind,lapply(nv,function(x)irr(m,x)));r$covariate<-v;r$region<-sub(paste0("^",v,"__"),"",r$cov);r$n_district_years<-sapply(r$region,function(x)sum(gsub("-","_",DD$rg)==x))
       r$dWAIC_vs_common<-round(m$waic$waic-w0,1);r$common_IRR<-irr(m0,v)$IRR;out[[v]]<-r;LOG("region slopes %s dWAIC %.1f",v,r$dWAIC_vs_common[1])}
     write.csv(do.call(rbind,out),F50r,row.names=FALSE,fileEncoding="UTF-8")}
-  F50a<-file.path(RES,"S50_access_sensitivity.csv")   # 접근성 대리(관외 외래 비율) 추가 민감도(17 §6 A2), 패널에 있을 때만
+  F50a<-file.path(RES,"S50_access_sensitivity.csv")
   if(!file.exists(F50a)&&"outside_care_share"%in%names(DD)){m<-safe(c(MAINV,"outside_care_share"))
     if(!is.null(m)){r<-do.call(rbind,lapply(c(MAINV,"outside_care_share"),function(v)irr(m,v)));r$role<-ifelse(r$cov%in%HYPV,"hypothesis",ifelse(r$cov%in%FORCED,"forced","added"));r$WAIC<-round(m$waic$waic,1)
       m0a<-safe(MAINV);r$main_IRR<-sapply(r$cov,function(v)if(v%in%MAINV)irr(m0a,v)$IRR[1] else NA);write.csv(r,F50a,row.names=FALSE,fileEncoding="UTF-8");LOG("access sensitivity WAIC %.1f",r$WAIC[1])}}
@@ -236,7 +218,6 @@ if(GROUP=="combine"){
   ad<-function(f,an,grp,note,cmp){x<-read.csv(file.path(RES,f),stringsAsFactors=FALSE);data.frame(analysis=an,group=grp,cov=x$cov,IRR=x$IRR,lo=x$lo,hi=x$hi,cred=x$cred,
     role=ifelse(x$cov%in%HYPV,"hypothesis",ifelse(x$cov%in%FORCED,"forced","added")),WAIC=x$WAIC,DIC=NA,n_obs=INFO$n_rows,n_regions=INFO$n_sgg,years="2011-2024",phi=NA,comparable_group=cmp,minutes=NA,note=note,stringsAsFactors=FALSE)}
   P<-rbind(P,ad("S9_typeI_IRR.csv","KH_typeI_S9","3_spacetime","Knorr-Held Type I(기존 S9, 81)","spacetime"),ad("S10_offset_sensitivity_IRR.csv","dementia_E_nondem_S10","8_dementia",sprintf("기존 S10(81) offset %s",INFO$offset_sensitivity),"E_nondem"))
-  # 비교 가능 집단(같은 자료·같은 offset): 주모형 자료 = main_data + neighbour + structure + spacetime
   P$cmp2<-ifelse(P$comparable_group%in%c("neighbour","structure","spacetime","main_data"),"main_data",P$comparable_group)
   w<-unique(P[,c("analysis","comparable_group","cmp2","WAIC")]);mainW<-w$WAIC[w$analysis=="main_queen"]
   P$dWAIC_vs_main<-ifelse(P$cmp2=="main_data",round(P$WAIC-mainW,1),NA)
@@ -247,7 +228,6 @@ if(GROUP=="combine"){
   ROB<-read.csv(file.path(RES,"S7_multiverse_summary.csv"),stringsAsFactors=FALSE);ROBV<-ROB$cov[ROB$robust];P$robust8<-P$cov%in%ROBV
   P<-P[order(P$group,P$analysis,match(P$role,c("hypothesis","forced","added")),match(P$cov,c(HYPV,FORCED))),]
   P$cmp2<-NULL;write.csv(P,file.path(RES,"S43_sensitivity_IRR.csv"),row.names=FALSE,fileEncoding="UTF-8")
-  # 분석별 요약
   sm<-do.call(rbind,lapply(split(P,P$analysis),function(x){h<-x[x$role=="hypothesis",];r<-h[h$robust8,];wk<-h[h$cov==FOCAL,]
     data.frame(analysis=x$analysis[1],group=x$group[1],WAIC=x$WAIC[1],dWAIC_vs_main=x$dWAIC_vs_main[1],comparable_group=x$comparable_group[1],n_obs=x$n_obs[1],years=x$years[1],phi=x$phi[1],
       n_cred_hyp=sum(h$cred,na.rm=TRUE),robust8_cred_same_sign=sum(r$cred&r$same_sign_as_main,na.rm=TRUE),robust8_lost=paste(r$cov[!(r$cred&r$same_sign_as_main)],collapse=";"),
